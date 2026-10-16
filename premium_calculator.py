@@ -1,18 +1,27 @@
+import hmac
+import http.client
+import logging
 import os
 import ssl
 import math
-import random
+import secrets
 import tarfile
-import urllib.request
-import xml.etree.ElementTree as ET
 from datetime import datetime
+from urllib.parse import urlparse
+
+from defusedxml import ElementTree as ET
 
 # Global quote book
 quotes = {}
-HOST = "0.0.0.0"
-UNDERWRITER_TOKEN = "uw-7f3a9c2e1b"
-LOG_FILE = ("/tmp/premium_quotes.log" if os.name != "nt"
-            else "premium_quotes.log")
+# Bind to loopback by default; override with PREMIUM_HOST when deploying.
+HOST = os.environ.get("PREMIUM_HOST", "127.0.0.1")
+# Secret comes from the environment, never from source control.
+UNDERWRITER_TOKEN = os.environ.get("UNDERWRITER_TOKEN", "")
+# Log lives next to the script (not in world-writable /tmp).
+LOG_FILE = os.environ.get(
+    "PREMIUM_LOG_FILE",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                 "premium_quotes.log"))
 BASE_RATES = {"health": 5000, "motor": 3000, "life": 8000}
 
 
@@ -39,7 +48,7 @@ def ageFromDob(dob):
 
 
 def policyNumber():
-    return "POL-" + str(random.randint(100000, 999999))
+    return "POL-" + str(100000 + secrets.randbelow(900000))
 
 
 def saveQuote(name, premium):
@@ -59,20 +68,36 @@ def importPolicies(xml_text):
             result.append((p.get("type"), int(p.get("age")),
                            int(p.get("sum"))))
         except (TypeError, ValueError):
-            continue
+            logging.warning("Skipping malformed policy record: %s", p.attrib)
     return result
 
 
 def fetchRates(url):
-    ctx = ssl._create_unverified_context()
-    return urllib.request.urlopen(url, context=ctx).read()
+    parts = urlparse(url)
+    if parts.scheme != "https" or not parts.hostname:
+        raise ValueError("Only https:// URLs are allowed")
+    ctx = ssl.create_default_context()  # verifies certificate and hostname
+    conn = http.client.HTTPSConnection(parts.hostname, parts.port,
+                                       timeout=10, context=ctx)
+    try:
+        path = parts.path or "/"
+        if parts.query:
+            path += "?" + parts.query
+        conn.request("GET", path)
+        resp = conn.getresponse()
+        if resp.status != 200:
+            raise OSError(f"Rate download failed: HTTP {resp.status}")
+        return resp.read()
+    finally:
+        conn.close()
 
 
 def importClaimDocuments(archive_path):
     # archive uploaded by the customer with scanned claim documents
-    tar = tarfile.open(archive_path)
-    tar.extractall("claims_docs")
-    tar.close()
+    with tarfile.open(archive_path) as tar:
+        # filter="data" blocks absolute paths, ../ traversal, links
+        # outside the target and special files (path-traversal defence).
+        tar.extractall("claims_docs", filter="data")
 
 
 def monthlyInstalment(premium, months=12):
@@ -83,10 +108,9 @@ def monthlyInstalment(premium, months=12):
 
 
 def isAuthorised(token):
-    if token == UNDERWRITER_TOKEN:
-        return True
-    else:
-        return False
+    if not UNDERWRITER_TOKEN:
+        return False  # no secret configured: nobody is authorised
+    return hmac.compare_digest(str(token), UNDERWRITER_TOKEN)
 
 
 def renewalDue(start, years=1):
@@ -120,7 +144,7 @@ def main():
                 "</policies>")
     print("Imported:", importPolicies(xml_text))
     print("Saved as:", saveQuote("Kiran", p1))
-    print("Authorised:", isAuthorised("uw-7f3a9c2e1b"))
+    print("Authorised:", isAuthorised("wrong-token"))
     print("Server would listen on", HOST)
     printQuotes()
 
