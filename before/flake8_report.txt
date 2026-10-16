@@ -1,0 +1,19 @@
+premium_calculator.py:14:80: E501 line too long (81 > 79 characters)
+premium_calculator.py:17:1: E302 expected 2 blank lines, found 1
+premium_calculator.py:17:80: E501 line too long (82 > 79 characters)
+premium_calculator.py:30:1: E302 expected 2 blank lines, found 1
+premium_calculator.py:36:1: E302 expected 2 blank lines, found 1
+premium_calculator.py:39:1: E302 expected 2 blank lines, found 1
+premium_calculator.py:47:1: E302 expected 2 blank lines, found 1
+premium_calculator.py:52:80: E501 line too long (80 > 79 characters)
+premium_calculator.py:53:9: E722 do not use bare 'except'
+premium_calculator.py:57:1: E302 expected 2 blank lines, found 1
+premium_calculator.py:61:1: E302 expected 2 blank lines, found 1
+premium_calculator.py:67:1: E302 expected 2 blank lines, found 1
+premium_calculator.py:73:1: E302 expected 2 blank lines, found 1
+premium_calculator.py:79:1: E302 expected 2 blank lines, found 1
+premium_calculator.py:83:1: E302 expected 2 blank lines, found 1
+premium_calculator.py:87:80: E501 line too long (89 > 79 characters)
+premium_calculator.py:89:1: E302 expected 2 blank lines, found 1
+premium_calculator.py:101:80: E501 line too long (148 > 79 characters)
+premium_calculator.py:107:1: E305 expected 2 blank lines after class or function definition, found 1
